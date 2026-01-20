@@ -57,7 +57,6 @@ const focusLocation = (school: School) => {
     hasCalculated.value = true;
   } else {
     hasCalculated.value = false;
-    clearMapRoute(); // Xóa đường cũ nếu là địa điểm mới
   }
 };
 
@@ -94,7 +93,7 @@ const handleOpenGoogleMaps = () => {
 
 const closeDetail = () => {
   selectedSchool.value = null;
-  clearMapRoute();
+  // clearMapRoute();
 };
 
 const onSearchSelect = (lat: number, lng: number) => {
