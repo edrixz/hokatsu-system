@@ -2,13 +2,22 @@
 import { ref, watch } from "vue"; // Import thêm watch
 import { GoogleMap, AdvancedMarker } from "vue3-google-map";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PanelLeftClose, PanelLeftOpen, MapPinIcon } from "lucide-vue-next"; // Import MapPinIcon
+import {
+  PanelLeftClose,
+  PanelLeftOpen,
+  HomeIcon,
+  BriefcaseIcon,
+  SchoolIcon,
+  BuildingIcon,
+  MapPinIcon,
+} from "lucide-vue-next"; // Import MapPinIcon
 import { Button } from "@/components/ui/button";
 
 // Imports Components
 import SearchFloatingBar from "~/components/map/SearchFloatingBar.vue";
 import LocationConfirm from "~/components/map/LocationConfirm.vue";
 import SchoolList from "~/components/school/SchoolList.vue";
+import LocationAddForm from "~/components/map/LocationAddForm.vue";
 
 // Imports Composables
 import { useSchools } from "~/composables/useSchools";
@@ -23,9 +32,47 @@ const center = ref({ lat: 35.9063, lng: 139.624 });
 const tempLocation = ref<{ lat: number; lng: number } | null>(null);
 const isSidebarOpen = ref(true);
 const isMapMoving = ref(false); // Trạng thái nhấc ghim
+// Add Form
+const showAddForm = ref(false);
+const isAdding = ref(false);
 
 // Data Hook
-const { schools, pending } = useSchools();
+const { schools, pending, addSchool } = useSchools();
+
+// Hàm helper chọn màu & icon
+const getCategoryColor = (category: string) => {
+  switch (category) {
+    case "Home":
+      return "#f43f5e"; // Màu hồng (Rose-500)
+    case "Work":
+      return "#334155"; // Màu xám đậm (Slate-700)
+    case "Public":
+      return "#16a34a"; // Màu xanh lá (Green-600)
+    case "Private":
+      return "#9333ea"; // Màu tím (Purple-600)
+    case "SmallScale":
+      return "#f97316"; // Màu cam (Orange-500)
+    default:
+      return "#3b82f6"; // Màu xanh dương (Blue-500)
+  }
+};
+
+const getMarkerStyle = (category: string) => {
+  switch (category) {
+    case "Home":
+      return { bg: "bg-rose-500", icon: HomeIcon };
+    case "Work":
+      return { bg: "bg-slate-700", icon: BriefcaseIcon };
+    case "Public":
+      return { bg: "bg-green-600", icon: SchoolIcon };
+    case "Private":
+      return { bg: "bg-purple-600", icon: BuildingIcon };
+    case "SmallScale":
+      return { bg: "bg-orange-500", icon: HomeIcon }; // Quy mô nhỏ
+    default:
+      return { bg: "bg-blue-500", icon: MapPinIcon };
+  }
+};
 
 // --- Event Handlers ---
 const onSearchSelect = (lat: number, lng: number) => {
@@ -83,7 +130,24 @@ const cancelAdd = () => {
 };
 
 const openAddForm = () => {
-  alert(`Lưu tọa độ: ${tempLocation.value?.lat}, ${tempLocation.value?.lng}`);
+  showAddForm.value = true;
+};
+
+// Hàm xử lý Submit Form thật
+const handleAddSubmit = async (formData: any, file: File | null) => {
+  isAdding.value = true;
+  try {
+    await addSchool(formData, file);
+
+    // Thành công:
+    showAddForm.value = false; // Đóng form
+    tempLocation.value = null; // Xóa marker tạm
+    alert("✅ Thêm địa điểm thành công!");
+  } catch (e: any) {
+    alert("❌ Lỗi: " + e.message);
+  } finally {
+    isAdding.value = false;
+  }
 };
 </script>
 
@@ -111,11 +175,20 @@ const openAddForm = () => {
     </transition>
 
     <div class="flex-1 relative h-full w-full">
+      <LocationAddForm
+        v-if="tempLocation"
+        v-model:open="showAddForm"
+        :lat="tempLocation.lat"
+        :lng="tempLocation.lng"
+        :is-loading="isAdding"
+        @submit="handleAddSubmit"
+      />
+
       <client-only>
         <GoogleMap
           ref="mapRef"
           :api-key="config.public.googleMapsApiKey"
-          map-id="DEMO_MAP_ID"
+          :map-id="config.public.googleMapsMapId"
           class="w-full h-full"
           :center="center"
           :zoom="15"
@@ -130,12 +203,67 @@ const openAddForm = () => {
             :options="{
               position: { lat: school.lat, lng: school.lng },
               title: school.name,
+              zIndex: 1,
             }"
+            @click="focusLocation(school)"
           >
             <div
-              class="p-2 bg-blue-500 rounded-full border-2 border-white shadow-lg"
+              class="marker-container"
+              style="position: relative; cursor: pointer"
             >
-              <div class="w-2 h-2 bg-white rounded-full"></div>
+              <div
+                style="
+                  padding: 6px;
+                  border-radius: 50%;
+                  border: 2px solid white;
+                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: white;
+                  width: 32px;
+                  height: 32px;
+                "
+                :style="{ backgroundColor: getCategoryColor(school.category) }"
+              >
+                <component
+                  :is="getMarkerStyle(school.category).icon"
+                  style="width: 16px; height: 16px"
+                />
+              </div>
+
+              <div
+                style="
+                  width: 0;
+                  height: 0;
+                  border-left: 6px solid transparent;
+                  border-right: 6px solid transparent;
+                  border-top: 8px solid;
+                  margin: -1px auto 0;
+                "
+                :style="{ borderTopColor: getCategoryColor(school.category) }"
+              ></div>
+
+              <div
+                class="tooltip"
+                style="
+                  position: absolute;
+                  top: -35px;
+                  left: 50%;
+                  transform: translateX(-50%);
+                  background: rgba(0, 0, 0, 0.8);
+                  color: white;
+                  font-size: 10px;
+                  padding: 4px 8px;
+                  border-radius: 4px;
+                  white-space: nowrap;
+                  pointer-events: none;
+                  opacity: 0;
+                  transition: opacity 0.2s;
+                "
+              >
+                {{ school.name }}
+              </div>
             </div>
           </AdvancedMarker>
         </GoogleMap>

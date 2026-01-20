@@ -32,7 +32,7 @@ usePlaceAutocomplete(inputRef, (lat, lng) => {
       <input
         ref="inputRef"
         type="text"
-        placeholder="🔍 Tìm trường, nhà, công ty..."
+        placeholder="Tìm trường, nhà, công ty..."
         class="w-full h-10 pl-9 pr-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
       />
     </div>
