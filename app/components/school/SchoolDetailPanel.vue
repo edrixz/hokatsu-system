@@ -9,24 +9,16 @@ import {
   Loader2,
   Route,
 } from "lucide-vue-next";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import Button from "@/components/ui/button/Button.vue";
+import Badge from "@/components/ui/badge/Badge.vue";
+import ScrollArea from "@/components/ui/scroll-area/ScrollArea.vue";
 import type { School } from "~/types/school";
 
-// Định nghĩa Props
 const props = defineProps<{
   school: School;
-  routeInfo: {
-    driving: { distance: string; duration: string } | null;
-    bicycling: { distance: string; duration: string } | null;
-  };
-  isRouting: boolean;
-  selectedMode: "DRIVING" | "BICYCLING";
-  hasCalculated: boolean; // Trạng thái đã bấm nút tính hay chưa
+  hasCalculated: boolean; // Cái này vẫn cần vì logic check nằm ở parent hoặc composable
 }>();
 
-// Định nghĩa Emits
 const emit = defineEmits<{
   (e: "close"): void;
   (e: "calculate"): void;
@@ -34,7 +26,9 @@ const emit = defineEmits<{
   (e: "openGoogleMaps"): void;
 }>();
 
-// Helpers UI
+// [MỚI] Khởi tạo store
+const routeStore = useRouteStore();
+
 const getBadgeVariant = (cat: string) => {
   switch (cat) {
     case "Home":
@@ -119,7 +113,7 @@ const getBadgeVariant = (cat: string) => {
           </div>
 
           <div
-            v-if="isRouting"
+            v-if="routeStore.isRouting"
             class="flex items-center justify-center py-4 text-slate-400 gap-2 text-sm"
           >
             <Loader2 class="w-4 h-4 animate-spin" /> Đang tính toán...
@@ -143,7 +137,7 @@ const getBadgeVariant = (cat: string) => {
             <div
               class="p-3 rounded-lg border cursor-pointer transition-all"
               :class="
-                selectedMode === 'BICYCLING'
+                routeStore.selectedMode === 'BICYCLING'
                   ? 'bg-green-100 border-green-300 ring-1 ring-green-300 shadow-sm'
                   : 'bg-green-50 border-green-100 hover:bg-green-100 opacity-70 hover:opacity-100'
               "
@@ -153,12 +147,12 @@ const getBadgeVariant = (cat: string) => {
                 <Bike class="w-4 h-4" />
                 <span class="text-xs font-bold uppercase">Xe đạp</span>
               </div>
-              <div v-if="routeInfo.bicycling" class="text-slate-800">
+              <div v-if="routeStore.routeInfo.bicycling" class="text-slate-800">
                 <div class="font-bold text-lg">
-                  {{ routeInfo.bicycling.duration }}
+                  {{ routeStore.routeInfo.bicycling.duration }}
                 </div>
                 <div class="text-xs text-slate-500">
-                  {{ routeInfo.bicycling.distance }}
+                  {{ routeStore.routeInfo.bicycling.distance }}
                 </div>
               </div>
               <div v-else class="text-xs text-slate-400 italic">N/A</div>
@@ -167,7 +161,7 @@ const getBadgeVariant = (cat: string) => {
             <div
               class="p-3 rounded-lg border cursor-pointer transition-all"
               :class="
-                selectedMode === 'DRIVING'
+                routeStore.selectedMode === 'DRIVING'
                   ? 'bg-blue-100 border-blue-300 ring-1 ring-blue-300 shadow-sm'
                   : 'bg-blue-50 border-blue-100 hover:bg-blue-100 opacity-70 hover:opacity-100'
               "
@@ -177,12 +171,12 @@ const getBadgeVariant = (cat: string) => {
                 <Car class="w-4 h-4" />
                 <span class="text-xs font-bold uppercase">Ô tô</span>
               </div>
-              <div v-if="routeInfo.driving" class="text-slate-800">
+              <div v-if="routeStore.routeInfo.driving" class="text-slate-800">
                 <div class="font-bold text-lg">
-                  {{ routeInfo.driving.duration }}
+                  {{ routeStore.routeInfo.driving.duration }}
                 </div>
                 <div class="text-xs text-slate-500">
-                  {{ routeInfo.driving.distance }}
+                  {{ routeStore.routeInfo.driving.distance }}
                 </div>
               </div>
               <div v-else class="text-xs text-slate-400 italic">N/A</div>

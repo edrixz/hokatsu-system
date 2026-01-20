@@ -11,7 +11,7 @@ export default defineNuxtConfig({
   vite: {
     plugins: [tailwindcss()],
   },
-  modules: ["@nuxtjs/supabase", "shadcn-nuxt"],
+  modules: ["@nuxtjs/supabase", "shadcn-nuxt", "@pinia/nuxt"],
   supabase: {
     redirect: false,
   },

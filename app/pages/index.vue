@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { GoogleMap } from "vue3-google-map";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import ScrollArea from "@/components/ui/scroll-area/ScrollArea.vue";
+import Button from "@/components/ui/button/Button.vue";
 import { PanelLeftClose, PanelLeftOpen, MapPinIcon } from "lucide-vue-next";
-import { Button } from "@/components/ui/button";
 
 // Components
 import SearchFloatingBar from "~/components/map/SearchFloatingBar.vue";
 import LocationConfirm from "~/components/map/LocationConfirm.vue";
 import SchoolList from "~/components/school/SchoolList.vue";
 import LocationAddForm from "~/components/map/LocationAddForm.vue";
-import SchoolMarker from "~/components/map/SchoolMarker.vue"; // [MỚI]
-import SchoolDetailPanel from "~/components/school/SchoolDetailPanel.vue"; // [MỚI]
+import SchoolMarker from "~/components/map/SchoolMarker.vue";
+import SchoolDetailPanel from "~/components/school/SchoolDetailPanel.vue";
 
 // Composables
 import { useSchools } from "~/composables/useSchools";
-import { useDirections } from "~/composables/useDirections"; // [MỚI]
+import { useDirections } from "~/composables/useDirections";
 import type { School } from "~/types/school";
 
 const config = useRuntimeConfig();
@@ -31,22 +31,17 @@ const showAddForm = ref(false);
 const isAdding = ref(false);
 const hasCalculated = ref(false);
 
-// Hooks
 const { schools, pending, addSchool } = useSchools();
-// [MỚI] Composable Directions
-const {
-  isRouting,
-  routeInfo,
-  selectedMode,
-  userLocation,
-  calculateRoutes,
-  switchMode,
-  clearRoute,
-} = useDirections();
+
+// Sử dụng Composable Directions
+const { calculateRoutes, tryRestoreRoute, switchMode, clearMapRoute } =
+  useDirections();
 
 const homeLocation = computed(() =>
   schools.value?.find((s) => s.category === "Home"),
 );
+
+const store = useRouteStore();
 
 // --- HANDLERS ---
 
@@ -57,9 +52,13 @@ const focusLocation = (school: School) => {
   selectedSchool.value = school;
   tempLocation.value = null;
 
-  // Reset Routing
-  hasCalculated.value = false;
-  clearRoute();
+  // Kiểm tra Cache
+  if (mapRef.value?.map && tryRestoreRoute(mapRef.value.map, school.id)) {
+    hasCalculated.value = true;
+  } else {
+    hasCalculated.value = false;
+    clearMapRoute(); // Xóa đường cũ nếu là địa điểm mới
+  }
 };
 
 const handleCalculateRoute = () => {
@@ -68,6 +67,7 @@ const handleCalculateRoute = () => {
       mapRef.value.map,
       { lat: homeLocation.value.lat, lng: homeLocation.value.lng },
       { lat: selectedSchool.value.lat, lng: selectedSchool.value.lng },
+      selectedSchool.value.id,
     );
     hasCalculated.value = true;
   } else if (!homeLocation.value) {
@@ -81,16 +81,20 @@ const handleOpenGoogleMaps = () => {
   if (homeLocation.value) {
     url += `&origin=${homeLocation.value.lat},${homeLocation.value.lng}`;
   }
-  url +=
-    selectedMode.value === "BICYCLING"
-      ? `&travelmode=bicycling`
-      : `&travelmode=driving`;
+
+  // [FIX 2] Sử dụng routeStore.selectedMode thay vì biến selectedMode không tồn tại
+  if (store.selectedMode === "BICYCLING") {
+    url += `&travelmode=bicycling`;
+  } else {
+    url += `&travelmode=driving`;
+  }
+
   window.open(url, "_blank");
 };
 
 const closeDetail = () => {
   selectedSchool.value = null;
-  clearRoute();
+  clearMapRoute();
 };
 
 const onSearchSelect = (lat: number, lng: number) => {
@@ -98,7 +102,7 @@ const onSearchSelect = (lat: number, lng: number) => {
   mapRef.value?.map?.setZoom(17);
   tempLocation.value = { lat, lng };
   selectedSchool.value = null;
-  clearRoute();
+  clearMapRoute();
 };
 
 const handleMapClick = (event: google.maps.MapMouseEvent) => {
@@ -114,7 +118,6 @@ const handleMapClick = (event: google.maps.MapMouseEvent) => {
   }
 };
 
-// ... (Các hàm handleCenterChanged, handleIdle, handleAddSubmit giữ nguyên như cũ)
 const handleCenterChanged = () => {
   if (!tempLocation.value || !mapRef.value?.map) return;
   isMapMoving.value = true;
@@ -122,6 +125,7 @@ const handleCenterChanged = () => {
   if (newCenter)
     tempLocation.value = { lat: newCenter.lat(), lng: newCenter.lng() };
 };
+
 const handleIdle = () => {
   isMapMoving.value = false;
 };
@@ -131,6 +135,7 @@ const cancelAdd = () => {
 const openAddForm = () => {
   showAddForm.value = true;
 };
+
 const handleAddSubmit = async (formData: any, file: File | null) => {
   isAdding.value = true;
   try {
@@ -269,9 +274,6 @@ const handleAddSubmit = async (formData: any, file: File | null) => {
         <SchoolDetailPanel
           v-if="selectedSchool"
           :school="selectedSchool"
-          :route-info="routeInfo"
-          :is-routing="isRouting"
-          :selected-mode="selectedMode"
           :has-calculated="hasCalculated"
           @close="closeDetail"
           @calculate="handleCalculateRoute"

@@ -1,47 +1,33 @@
-import { ref, onUnmounted } from "vue";
+// app/composables/useDirections.ts
+import { onUnmounted } from "vue";
+import { useRouteStore } from "~/stores/route-store";
 
 export const useDirections = () => {
-  const isRouting = ref(false);
-  const selectedMode = ref<"DRIVING" | "BICYCLING">("BICYCLING");
-  const userLocation = ref<{ lat: number; lng: number } | null>(null);
+  const store = useRouteStore();
 
-  // Dữ liệu hiển thị (Text)
-  const routeInfo = ref<{
-    driving: { distance: string; duration: string } | null;
-    bicycling: { distance: string; duration: string } | null;
-  }>({ driving: null, bicycling: null });
-
-  // Dữ liệu Raw (để vẽ)
-  const rawRoutes = {
-    DRIVING: null as any,
-    BICYCLING: null as any,
-  };
-
-  // Renderer của Google
+  // Renderer giữ local để thao tác DOM
   let directionsRenderer: google.maps.DirectionsRenderer | null = null;
-  let currentMap: google.maps.Map | null = null; // Lưu tham chiếu map
+  let currentMap: google.maps.Map | null = null;
 
-  // Khởi tạo Renderer
   const initRenderer = (map: google.maps.Map) => {
     if (directionsRenderer) return;
     currentMap = map;
     directionsRenderer = new google.maps.DirectionsRenderer({
       map,
-      suppressMarkers: true, // Tắt marker A-B mặc định
+      suppressMarkers: true,
       polylineOptions: { strokeWeight: 5, strokeOpacity: 0.7 },
     });
   };
 
-  // Vẽ đường
   const renderRoute = (mode: "DRIVING" | "BICYCLING") => {
-    if (!directionsRenderer || !rawRoutes[mode]) return;
+    // Lấy dữ liệu từ Store để vẽ
+    if (!directionsRenderer || !store.rawRoutes[mode]) return;
 
-    // [QUAN TRỌNG] Gắn lại renderer vào map nếu nó đang bị gỡ
+    // Đảm bảo renderer được gắn vào map
     if (currentMap && !directionsRenderer.getMap()) {
       directionsRenderer.setMap(currentMap);
     }
 
-    // Config màu sắc
     directionsRenderer.setOptions({
       polylineOptions: {
         strokeColor: mode === "DRIVING" ? "#2563eb" : "#16a34a",
@@ -49,33 +35,28 @@ export const useDirections = () => {
         strokeOpacity: 0.8,
       },
     });
-    directionsRenderer.setDirections(rawRoutes[mode]);
+
+    directionsRenderer.setDirections(store.rawRoutes[mode]);
   };
 
-  // Tính toán
   const calculateRoutes = (
     map: google.maps.Map,
     origin: { lat: number; lng: number },
     destination: { lat: number; lng: number },
+    destinationId: string,
   ) => {
     if (!window.google) return;
 
-    isRouting.value = true;
-    routeInfo.value = { driving: null, bicycling: null };
-    rawRoutes.DRIVING = null;
-    rawRoutes.BICYCLING = null;
-    selectedMode.value = "BICYCLING";
+    store.isRouting = true;
+    store.selectedMode = "BICYCLING"; // Reset về xe đạp khi tính mới
 
     initRenderer(map);
-
-    // [FIX LỖI] Thay vì setDirections({routes: []}), ta gỡ renderer khỏi map
-    if (directionsRenderer) {
-      directionsRenderer.setMap(null);
-    }
+    // Tạm ẩn đường cũ khi đang tính toán mới
+    if (directionsRenderer) directionsRenderer.setMap(null);
 
     const service = new google.maps.DirectionsService();
-    userLocation.value = origin;
 
+    // Helper fetch
     const fetchRoute = (mode: google.maps.TravelMode) => {
       return new Promise<{ data: any; result: any } | null>((resolve) => {
         service.route(
@@ -105,36 +86,47 @@ export const useDirections = () => {
       fetchRoute(google.maps.TravelMode.DRIVING),
       fetchRoute(google.maps.TravelMode.BICYCLING),
     ]).then(([drivingRes, bicyclingRes]) => {
-      routeInfo.value = {
-        driving: drivingRes?.data || null,
-        bicycling: bicyclingRes?.data || null,
-      };
-      rawRoutes.DRIVING = drivingRes?.result || null;
-      rawRoutes.BICYCLING = bicyclingRes?.result || null;
+      // Lưu vào Store
+      store.saveRoute(destinationId, origin, drivingRes, bicyclingRes);
+      store.isRouting = false;
 
-      isRouting.value = false;
-
-      // Tự động vẽ đường có sẵn (Ưu tiên Xe đạp)
-      if (rawRoutes.BICYCLING) {
-        selectedMode.value = "BICYCLING";
+      // Vẽ lên map
+      if (store.rawRoutes.BICYCLING) {
+        store.selectedMode = "BICYCLING";
         renderRoute("BICYCLING");
-      } else if (rawRoutes.DRIVING) {
-        selectedMode.value = "DRIVING";
+      } else if (store.rawRoutes.DRIVING) {
+        store.selectedMode = "DRIVING";
         renderRoute("DRIVING");
       }
     });
   };
 
+  // Hàm khôi phục thông minh
+  const tryRestoreRoute = (map: google.maps.Map, id: string): boolean => {
+    // Kiểm tra xem ID mới có trùng ID trong Store không
+    if (
+      id === store.cachedId &&
+      (store.rawRoutes.DRIVING || store.rawRoutes.BICYCLING)
+    ) {
+      // TRÙNG KHỚP -> Vẽ lại ngay từ Store (Không tốn API)
+      initRenderer(map);
+      renderRoute(store.selectedMode);
+      return true;
+    }
+    // KHÁC -> Không làm gì cả (Giữ nguyên đường cũ trên map theo yêu cầu)
+    return false;
+  };
+
   const switchMode = (mode: "DRIVING" | "BICYCLING") => {
-    if (rawRoutes[mode]) {
-      selectedMode.value = mode;
+    if (store.rawRoutes[mode]) {
+      store.selectedMode = mode;
       renderRoute(mode);
     }
   };
 
-  const clearRoute = () => {
+  const clearMapRoute = () => {
     if (directionsRenderer) directionsRenderer.setMap(null);
-    routeInfo.value = { driving: null, bicycling: null };
+    store.clearStore();
   };
 
   onUnmounted(() => {
@@ -142,12 +134,9 @@ export const useDirections = () => {
   });
 
   return {
-    isRouting,
-    selectedMode,
-    routeInfo,
-    userLocation,
     calculateRoutes,
+    tryRestoreRoute,
     switchMode,
-    clearRoute,
+    clearMapRoute,
   };
 };
