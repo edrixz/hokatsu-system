@@ -101,6 +101,7 @@ const handleDelete = async () => {
         />
 
         <SchoolRouting
+          v-if="school.category !== 'Home'"
           :has-calculated="hasCalculated"
           @calculate="$emit('calculate')"
           @switch-mode="(m) => $emit('switchMode', m)"

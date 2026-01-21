@@ -50,6 +50,8 @@ const categories = [
   { value: "Company", label: "Doanh nghiệp" },
 ];
 
+const isHome = computed(() => props.school.category === "Home");
+
 const getBadgeVariant = (cat: string) => {
   switch (cat) {
     case "Home":
@@ -115,7 +117,7 @@ const getRankingBadge = (rank: number) => {
             }}</Badge>
 
             <div
-              v-if="school.ranking"
+              v-if="school.ranking && !isHome"
               class="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold border shadow-sm"
               :class="getRankingBadge(school.ranking).class"
             >
@@ -156,7 +158,7 @@ const getRankingBadge = (rank: number) => {
               </Select>
             </div>
 
-            <div>
+            <div v-if="formData.category !== 'Home'">
               <div
                 class="text-[10px] uppercase font-bold text-slate-400 mb-1 ml-1"
               >

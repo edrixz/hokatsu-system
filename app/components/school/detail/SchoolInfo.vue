@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import {
   MapPin,
   Globe,
@@ -27,10 +27,10 @@ const emit = defineEmits<{
 
 const tagsInput = ref("");
 const previewUrl = ref<string | null>(null);
-
-// [FIX] Định nghĩa danh sách key với kiểu dữ liệu cụ thể của AgeGroupData
-// Điều này báo cho TypeScript biết các key này chắc chắn nằm trong AgeGroupData
 const statsKeys: (keyof AgeGroupData)[] = ["total", "age_0", "age_1"];
+
+// [LOGIC MỚI] Kiểm tra xem có phải là Nhà riêng không
+const isHome = computed(() => props.school.category === "Home");
 
 // Sync tags & image preview
 watch(
@@ -44,7 +44,6 @@ watch(
   { immediate: true },
 );
 
-// Sync tags input back to formData
 watch(tagsInput, (val) => {
   if (props.isEditing) {
     props.formData.tags = val
@@ -91,7 +90,7 @@ const handleFile = (e: Event) => {
     </div>
 
     <div class="space-y-4">
-      <div class="space-y-2">
+      <div v-if="!isHome" class="space-y-2">
         <div class="flex items-center gap-2 font-medium text-slate-700 text-sm">
           <Tag class="w-4 h-4" /> Tiện ích
         </div>
@@ -129,7 +128,7 @@ const handleFile = (e: Event) => {
         </div>
       </div>
 
-      <div class="flex gap-3">
+      <div v-if="!isHome" class="flex gap-3">
         <Globe class="w-5 h-5 text-slate-400 shrink-0" />
         <div class="flex-1 space-y-1">
           <div class="font-medium text-sm text-slate-700">Website</div>
@@ -165,98 +164,100 @@ const handleFile = (e: Event) => {
       </div>
     </div>
 
-    <div class="border-t border-dashed"></div>
+    <template v-if="!isHome">
+      <div class="border-t border-dashed"></div>
 
-    <div class="space-y-4">
-      <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm">
-        <Clock class="w-4 h-4" /> Vận hành
-      </h3>
-      <div class="grid grid-cols-2 gap-4 text-sm">
-        <div>
-          <div class="text-slate-500 text-xs mb-1">Giờ mở cửa</div>
-          <div v-if="!isEditing">{{ school.opening_hours || "---" }}</div>
-          <Input
-            v-else
-            v-model="formData.opening_hours"
-            class="h-7"
-            placeholder="7:00 - 18:00"
-          />
-        </div>
-        <div>
-          <div class="text-slate-500 text-xs mb-1">Giờ làm thêm</div>
-          <div v-if="!isEditing">{{ school.extended_hours || "---" }}</div>
-          <Input
-            v-else
-            v-model="formData.extended_hours"
-            class="h-7"
-            placeholder="tới 20:00"
-          />
-        </div>
-        <div class="col-span-2">
-          <div class="text-slate-500 text-xs mb-1">Độ tuổi nhận (tháng)</div>
-          <div v-if="!isEditing" class="flex items-center gap-1">
-            <Baby class="w-3 h-3" /> Từ {{ school.min_age_months || 0 }} tháng
+      <div class="space-y-4">
+        <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm">
+          <Clock class="w-4 h-4" /> Vận hành
+        </h3>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <div class="text-slate-500 text-xs mb-1">Giờ mở cửa</div>
+            <div v-if="!isEditing">{{ school.opening_hours || "---" }}</div>
+            <Input
+              v-else
+              v-model="formData.opening_hours"
+              class="h-7"
+              placeholder="7:00 - 18:00"
+            />
           </div>
-          <Input
-            v-else
-            type="number"
-            v-model="formData.min_age_months"
-            class="h-7 w-32"
-          />
-        </div>
-      </div>
-    </div>
-
-    <div class="border-t border-dashed"></div>
-
-    <div class="space-y-4">
-      <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm">
-        <Users class="w-4 h-4" /> Số liệu
-      </h3>
-
-      <div class="bg-slate-50 p-3 rounded-lg border">
-        <div class="text-xs font-bold text-slate-500 mb-2 uppercase">
-          Chỉ tiêu
-        </div>
-        <div class="grid grid-cols-3 gap-2 text-sm text-center">
-          <div v-for="key in statsKeys" :key="key">
-            <span class="text-[10px] text-slate-400 block capitalize">{{
-              key === "total" ? "Tổng" : key.replace("_", " ")
-            }}</span>
-            <span v-if="!isEditing" class="font-bold text-lg">{{
-              school.capacity_info?.[key] || 0
-            }}</span>
+          <div>
+            <div class="text-slate-500 text-xs mb-1">Giờ làm thêm</div>
+            <div v-if="!isEditing">{{ school.extended_hours || "---" }}</div>
+            <Input
+              v-else
+              v-model="formData.extended_hours"
+              class="h-7"
+              placeholder="tới 20:00"
+            />
+          </div>
+          <div class="col-span-2">
+            <div class="text-slate-500 text-xs mb-1">Độ tuổi nhận (tháng)</div>
+            <div v-if="!isEditing" class="flex items-center gap-1">
+              <Baby class="w-3 h-3" /> Từ {{ school.min_age_months || 0 }} tháng
+            </div>
             <Input
               v-else
               type="number"
-              v-model="formData.capacity_info[key]"
-              class="h-7 text-center"
+              v-model="formData.min_age_months"
+              class="h-7 w-32"
             />
           </div>
         </div>
       </div>
 
-      <div class="bg-red-50 p-3 rounded-lg border border-red-100">
-        <div class="text-xs font-bold text-red-500 mb-2 uppercase">
-          Chỗ trống
+      <div class="border-t border-dashed"></div>
+
+      <div class="space-y-4">
+        <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm">
+          <Users class="w-4 h-4" /> Số liệu
+        </h3>
+
+        <div class="bg-slate-50 p-3 rounded-lg border">
+          <div class="text-xs font-bold text-slate-500 mb-2 uppercase">
+            Chỉ tiêu
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-sm text-center">
+            <div v-for="key in statsKeys" :key="key">
+              <span class="text-[10px] text-slate-400 block capitalize">{{
+                key === "total" ? "Tổng" : key.replace("_", " ")
+              }}</span>
+              <span v-if="!isEditing" class="font-bold text-lg">{{
+                school.capacity_info?.[key] || 0
+              }}</span>
+              <Input
+                v-else
+                type="number"
+                v-model="formData.capacity_info[key]"
+                class="h-7 text-center"
+              />
+            </div>
+          </div>
         </div>
-        <div class="grid grid-cols-3 gap-2 text-sm text-center">
-          <div v-for="key in statsKeys" :key="key">
-            <span class="text-[10px] text-red-400 block capitalize">{{
-              key === "total" ? "Tổng" : key.replace("_", " ")
-            }}</span>
-            <span v-if="!isEditing" class="font-bold text-lg text-red-700">{{
-              school.vacancy_info?.[key] || 0
-            }}</span>
-            <Input
-              v-else
-              type="number"
-              v-model="formData.vacancy_info[key]"
-              class="h-7 text-center border-red-200"
-            />
+
+        <div class="bg-red-50 p-3 rounded-lg border border-red-100">
+          <div class="text-xs font-bold text-red-500 mb-2 uppercase">
+            Chỗ trống
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-sm text-center">
+            <div v-for="key in statsKeys" :key="key">
+              <span class="text-[10px] text-red-400 block capitalize">{{
+                key === "total" ? "Tổng" : key.replace("_", " ")
+              }}</span>
+              <span v-if="!isEditing" class="font-bold text-lg text-red-700">{{
+                school.vacancy_info?.[key] || 0
+              }}</span>
+              <Input
+                v-else
+                type="number"
+                v-model="formData.vacancy_info[key]"
+                class="h-7 text-center border-red-200"
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
