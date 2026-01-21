@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, watch } from "vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/select";
 import { Loader2, ImagePlus, X } from "lucide-vue-next";
 
-// Props
 const props = defineProps<{
   open: boolean;
   lat: number;
@@ -29,25 +28,21 @@ const props = defineProps<{
   isLoading: boolean;
 }>();
 
-// Emits
 const emit = defineEmits<{
   (e: "update:open", value: boolean): void;
   (e: "submit", formData: any, file: File | null): void;
 }>();
 
-// Form State
 const form = ref({
   name: "",
-  category: "Public", // Mặc định là trường Công
+  category: "Public",
   address: "",
   notes: "",
 });
 
-// Image State
 const selectedFile = ref<File | null>(null);
 const previewUrl = ref<string | null>(null);
 
-// Categories
 const categories = [
   { value: "Public", label: "🏫 Trường Công (Ninka)" },
   { value: "Private", label: "🏢 Trường Tư/Quốc tế" },
@@ -57,14 +52,23 @@ const categories = [
   { value: "Company", label: "🏭 Doanh nghiệp (Chủ đạo)" },
 ];
 
-// Handle File Change
+watch(
+  () => props.open,
+  (val) => {
+    if (val) {
+      // Reset form khi mở (chế độ Add mới)
+      form.value = { name: "", category: "Public", address: "", notes: "" };
+      selectedFile.value = null;
+      previewUrl.value = null;
+    }
+  },
+);
+
 const onFileChange = (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files[0]) {
-    const file = input.files[0];
-    selectedFile.value = file;
-    // Tạo URL preview
-    previewUrl.value = URL.createObjectURL(file);
+    selectedFile.value = input.files[0];
+    previewUrl.value = URL.createObjectURL(input.files[0]);
   }
 };
 
@@ -73,97 +77,76 @@ const removeImage = () => {
   previewUrl.value = null;
 };
 
-// Submit
 const handleSubmit = () => {
-  // Gửi dữ liệu ra ngoài cho index.vue xử lý
+  // Chỉ gửi thông tin cơ bản
   emit(
     "submit",
     {
-      ...form.value,
+      name: form.value.name,
+      category: form.value.category,
+      address: form.value.address,
+      notes: form.value.notes,
       lat: props.lat,
       lng: props.lng,
     },
     selectedFile.value,
   );
 };
-
-// Reset form khi đóng mở (Optional)
 </script>
 
 <template>
   <Dialog :open="open" @update:open="$emit('update:open', $event)">
-    <DialogContent class="sm:max-w-106.25 max-h-[90vh] overflow-y-auto">
+    <DialogContent class="sm:max-w-md">
       <DialogHeader>
         <DialogTitle>Thêm địa điểm mới</DialogTitle>
-        <DialogDescription>
-          Nhập thông tin cho toạ độ {{ lat.toFixed(4) }}, {{ lng.toFixed(4) }}
-        </DialogDescription>
+        <DialogDescription
+          >Nhập thông tin cơ bản cho địa điểm này.</DialogDescription
+        >
       </DialogHeader>
 
       <div class="grid gap-4 py-4">
         <div class="grid gap-2">
-          <Label for="name"
-            >Tên địa điểm <span class="text-red-500">*</span></Label
-          >
-          <Input
-            id="name"
-            v-model="form.name"
-            placeholder="VD: Hoikuen ABC..."
-          />
-        </div>
-
-        <div class="grid gap-2">
-          <Label for="address">Địa chỉ</Label>
-          <Input
-            id="address"
-            v-model="form.address"
-            placeholder="VD: 1-2-3 Omiya, Saitama..."
-          />
+          <Label>Tên địa điểm <span class="text-red-500">*</span></Label>
+          <Input v-model="form.name" placeholder="VD: Hoikuen ABC..." />
         </div>
 
         <div class="grid gap-2">
           <Label>Phân loại</Label>
           <Select v-model="form.category">
-            <SelectTrigger>
-              <SelectValue placeholder="Chọn loại" />
-            </SelectTrigger>
+            <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem
                 v-for="c in categories"
                 :key="c.value"
                 :value="c.value"
+                >{{ c.label }}</SelectItem
               >
-                {{ c.label }}
-              </SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div class="grid gap-2">
-          <Label>Hình ảnh (Tùy chọn)</Label>
+          <Label>Địa chỉ</Label>
+          <Input v-model="form.address" placeholder="Nhập địa chỉ..." />
+        </div>
 
+        <div class="grid gap-2">
+          <Label>Hình ảnh</Label>
           <div
             v-if="!previewUrl"
-            class="flex items-center justify-center w-full"
+            class="w-full h-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-gray-50 cursor-pointer hover:bg-gray-100 relative"
           >
-            <label
-              for="dropzone-file"
-              class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 border-gray-300"
-            >
-              <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                <ImagePlus class="w-8 h-8 mb-2 text-gray-400" />
-                <p class="text-xs text-gray-500">Bấm để tải ảnh lên</p>
-              </div>
-              <input
-                id="dropzone-file"
-                type="file"
-                accept="image/*"
-                class="hidden"
-                @change="onFileChange"
-              />
-            </label>
+            <input
+              type="file"
+              accept="image/*"
+              class="absolute inset-0 opacity-0 cursor-pointer"
+              @change="onFileChange"
+            />
+            <div class="text-center text-gray-400">
+              <ImagePlus class="w-6 h-6 mx-auto mb-1" />
+              <span class="text-xs">Tải ảnh lên</span>
+            </div>
           </div>
-
           <div
             v-else
             class="relative w-full h-40 rounded-lg overflow-hidden border"
@@ -171,7 +154,7 @@ const handleSubmit = () => {
             <img :src="previewUrl" class="w-full h-full object-cover" />
             <button
               @click="removeImage"
-              class="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-1"
+              class="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1"
             >
               <X class="w-4 h-4" />
             </button>
@@ -179,12 +162,8 @@ const handleSubmit = () => {
         </div>
 
         <div class="grid gap-2">
-          <Label for="notes">Ghi chú</Label>
-          <Textarea
-            id="notes"
-            v-model="form.notes"
-            placeholder="Ghi chú thêm về giờ giấc, bãi xe..."
-          />
+          <Label>Ghi chú</Label>
+          <Textarea v-model="form.notes" placeholder="Ghi chú thêm..." />
         </div>
       </div>
 
@@ -193,8 +172,7 @@ const handleSubmit = () => {
           >Hủy</Button
         >
         <Button @click="handleSubmit" :disabled="isLoading || !form.name">
-          <Loader2 v-if="isLoading" class="mr-2 h-4 w-4 animate-spin" />
-          Lưu địa điểm
+          <Loader2 v-if="isLoading" class="mr-2 h-4 w-4 animate-spin" /> Lưu
         </Button>
       </DialogFooter>
     </DialogContent>

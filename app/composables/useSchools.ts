@@ -1,12 +1,14 @@
+import { ref } from "vue";
 import type { School } from "~/types/school";
 
-// Ảnh mặc định nếu không upload
 const DEFAULT_IMAGE = "https://placehold.co/600x400?text=No+Image";
 
 export const useSchools = () => {
-  const supabase = useSupabaseClient<School>();
+  // [FIX] Dùng <any> thay vì <School> để tránh lỗi "parameter of type never"
+  // Nguyên nhân: useSupabaseClient cần Database Definition, không phải Row Interface.
+  const supabase = useSupabaseClient<any>();
 
-  // Sử dụng useAsyncData để fetch data server-side friendly
+  // Fetch Data
   const {
     data: schools,
     pending,
@@ -19,10 +21,17 @@ export const useSchools = () => {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data as School[];
+
+    // Map dữ liệu để đảm bảo JSONB không bị null
+    return (data as any[]).map((item) => ({
+      ...item,
+      capacity_info: item.capacity_info || { total: 0 },
+      vacancy_info: item.vacancy_info || { total: 0 },
+      tags: item.tags || [],
+    })) as School[];
   });
 
-  // 2. Upload Image Helper
+  // Helper Upload
   const uploadImage = async (file: File): Promise<string | null> => {
     try {
       const fileExt = file.name.split(".").pop();
@@ -46,32 +55,79 @@ export const useSchools = () => {
     }
   };
 
-  // 3. Add New School
+  // 1. Thêm Mới (Chỉ thông tin cơ bản)
   const addSchool = async (formData: any, file: File | null) => {
     let imageUrl = DEFAULT_IMAGE;
-
-    // Nếu có file thì upload
     if (file) {
       const uploadedUrl = await uploadImage(file);
       if (uploadedUrl) imageUrl = uploadedUrl;
     }
 
-    // Insert vào DB
     const { data, error } = await supabase
       .from("schools")
       .insert({
         ...formData,
         image_url: imageUrl,
-        ranking: null, // Mặc định chưa xếp hạng
+        // Các trường khác để mặc định null/empty
+        ranking: null,
+        capacity_info: {},
+        vacancy_info: {},
+        tags: [],
       })
       .select()
       .single();
 
     if (error) throw error;
-
-    // Refresh lại danh sách để hiện ngay lập tức
     await refresh();
     return data;
+  };
+
+  // 2. Cập Nhật (Full thông tin)
+  const updateSchool = async (
+    id: string,
+    formData: any,
+    file: File | null,
+    oldImageUrl?: string,
+  ) => {
+    let imageUrl = oldImageUrl;
+
+    if (file) {
+      const uploadedUrl = await uploadImage(file);
+      if (uploadedUrl) imageUrl = uploadedUrl;
+    }
+
+    // [FIX] Update đầy đủ các trường
+    const { data, error } = await supabase
+      .from("schools")
+      .update({
+        ...formData,
+        image_url: imageUrl,
+        // Chuyển null ranking nếu cần thiết
+        ranking: formData.ranking === "" ? null : formData.ranking,
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    await refresh();
+    return data;
+  };
+
+  // 3. Xóa
+  const deleteSchool = async (id: string, imageUrl?: string) => {
+    const { error } = await supabase.from("schools").delete().eq("id", id);
+    if (error) throw error;
+
+    if (imageUrl && imageUrl !== DEFAULT_IMAGE) {
+      try {
+        const path = imageUrl.split("/school-images/").pop();
+        if (path) await supabase.storage.from("school-images").remove([path]);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    await refresh();
   };
 
   return {
@@ -80,5 +136,7 @@ export const useSchools = () => {
     error,
     refresh,
     addSchool,
+    updateSchool,
+    deleteSchool,
   };
 };

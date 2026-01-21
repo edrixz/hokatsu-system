@@ -77,14 +77,14 @@ const vacancy = computed(() => Math.floor(Math.random() * 5)); // Số chỗ tr�
       class="relative w-0 h-0 flex justify-center items-end overflow-visible"
     >
       <div
-        class="flex flex-col items-center cursor-pointer group -translate-y-[1px]"
+        class="flex flex-col items-center cursor-pointer group -translate-y-px"
         @click.stop="emit('click', school)"
         @mouseenter="isHovered = true"
         @mouseleave="isHovered = false"
       >
         <div
           v-if="isHovered"
-          class="mb-2 bg-white rounded-lg shadow-xl border border-slate-200 w-[220px] overflow-hidden origin-bottom animate-in zoom-in-95 duration-200"
+          class="mb-2 bg-white rounded-lg shadow-xl border border-slate-200 w-55 overflow-hidden origin-bottom animate-in zoom-in-95 duration-200"
         >
           <div class="h-24 w-full bg-slate-100 relative">
             <img
@@ -166,7 +166,7 @@ const vacancy = computed(() => Math.floor(Math.random() * 5)); // Số chỗ tr�
             <component :is="getCategoryIcon(school.category)" class="w-4 h-4" />
           </div>
           <div
-            class="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[14px] -mt-[1px]"
+            class="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-14 -mt-px"
             :style="{ borderTopColor: getCategoryColorHex(school.category) }"
           ></div>
         </div>

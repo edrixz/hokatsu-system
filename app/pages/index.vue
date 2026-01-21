@@ -5,7 +5,6 @@ import ScrollArea from "@/components/ui/scroll-area/ScrollArea.vue";
 import Button from "@/components/ui/button/Button.vue";
 import { PanelLeftClose, PanelLeftOpen, MapPinIcon } from "lucide-vue-next";
 
-// Components
 import SearchFloatingBar from "~/components/map/SearchFloatingBar.vue";
 import LocationConfirm from "~/components/map/LocationConfirm.vue";
 import SchoolList from "~/components/school/SchoolList.vue";
@@ -13,9 +12,9 @@ import LocationAddForm from "~/components/map/LocationAddForm.vue";
 import SchoolMarker from "~/components/map/SchoolMarker.vue";
 import SchoolDetailPanel from "~/components/school/SchoolDetailPanel.vue";
 
-// Composables
 import { useSchools } from "~/composables/useSchools";
 import { useDirections } from "~/composables/useDirections";
+import { useRouteStore } from "~/stores/route-store";
 import type { School } from "~/types/school";
 
 const config = useRuntimeConfig();
@@ -24,7 +23,8 @@ const center = ref({ lat: 35.9063, lng: 139.624 });
 
 // State UI
 const tempLocation = ref<{ lat: number; lng: number } | null>(null);
-const selectedSchool = ref<School | null>(null);
+// [FIX REACTIVITY] Thay vì lưu object, ta lưu ID
+const selectedSchoolId = ref<string | null>(null);
 const isSidebarOpen = ref(true);
 const isMapMoving = ref(false);
 const showAddForm = ref(false);
@@ -32,27 +32,29 @@ const isAdding = ref(false);
 const hasCalculated = ref(false);
 
 const { schools, pending, addSchool } = useSchools();
-
-// Sử dụng Composable Directions
 const { calculateRoutes, tryRestoreRoute, switchMode, clearMapRoute } =
   useDirections();
+const routeStore = useRouteStore();
+
+// [FIX REACTIVITY] Computed property để luôn lấy dữ liệu mới nhất từ danh sách schools
+const selectedSchool = computed(
+  () => schools.value?.find((s) => s.id === selectedSchoolId.value) || null,
+);
 
 const homeLocation = computed(() =>
   schools.value?.find((s) => s.category === "Home"),
 );
 
-const store = useRouteStore();
-
 // --- HANDLERS ---
-
 const focusLocation = (school: School) => {
   center.value = { lat: school.lat, lng: school.lng };
   mapRef.value?.map?.setZoom(16);
   mapRef.value?.map?.panTo({ lat: school.lat, lng: school.lng });
-  selectedSchool.value = school;
+
+  // [FIX] Cập nhật ID thay vì Object
+  selectedSchoolId.value = school.id;
   tempLocation.value = null;
 
-  // Kiểm tra Cache
   if (mapRef.value?.map && tryRestoreRoute(mapRef.value.map, school.id)) {
     hasCalculated.value = true;
   } else {
@@ -80,32 +82,28 @@ const handleOpenGoogleMaps = () => {
   if (homeLocation.value) {
     url += `&origin=${homeLocation.value.lat},${homeLocation.value.lng}`;
   }
-
-  // [FIX 2] Sử dụng routeStore.selectedMode thay vì biến selectedMode không tồn tại
-  if (store.selectedMode === "BICYCLING") {
+  if (routeStore.selectedMode === "BICYCLING") {
     url += `&travelmode=bicycling`;
   } else {
     url += `&travelmode=driving`;
   }
-
   window.open(url, "_blank");
 };
 
 const closeDetail = () => {
-  selectedSchool.value = null;
-  // clearMapRoute();
+  selectedSchoolId.value = null;
 };
 
 const onSearchSelect = (lat: number, lng: number) => {
   mapRef.value?.map?.panTo({ lat, lng });
   mapRef.value?.map?.setZoom(17);
   tempLocation.value = { lat, lng };
-  selectedSchool.value = null;
+  selectedSchoolId.value = null;
   clearMapRoute();
 };
 
 const handleMapClick = (event: google.maps.MapMouseEvent) => {
-  if (selectedSchool.value) {
+  if (selectedSchoolId.value) {
     closeDetail();
     return;
   }
@@ -159,9 +157,9 @@ const handleAddSubmit = async (formData: any, file: File | null) => {
       >
         <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
           <h1 class="font-bold text-lg text-slate-800">🗺️ Hokatsu Map</h1>
-          <Button variant="ghost" size="icon" @click="isSidebarOpen = false">
-            <PanelLeftClose class="w-4 h-4" />
-          </Button>
+          <Button variant="ghost" size="icon" @click="isSidebarOpen = false"
+            ><PanelLeftClose class="w-4 h-4"
+          /></Button>
         </div>
         <ScrollArea class="flex-1 p-4">
           <SchoolList
@@ -245,9 +243,9 @@ const handleAddSubmit = async (formData: any, file: File | null) => {
           v-if="!isSidebarOpen"
           class="hidden md:block absolute top-4 left-4 z-20"
         >
-          <Button variant="secondary" size="icon" @click="isSidebarOpen = true">
-            <PanelLeftOpen class="w-5 h-5" />
-          </Button>
+          <Button variant="secondary" size="icon" @click="isSidebarOpen = true"
+            ><PanelLeftOpen class="w-5 h-5"
+          /></Button>
         </div>
 
         <div
