@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { GoogleMap } from "vue3-google-map";
-import ScrollArea from "@/components/ui/scroll-area/ScrollArea.vue";
 import Button from "@/components/ui/button/Button.vue";
 import { PanelLeftClose, PanelLeftOpen, MapPinIcon } from "lucide-vue-next";
 
@@ -23,7 +22,6 @@ const center = ref({ lat: 35.9063, lng: 139.624 });
 
 // State UI
 const tempLocation = ref<{ lat: number; lng: number } | null>(null);
-// [FIX REACTIVITY] Thay vì lưu object, ta lưu ID
 const selectedSchoolId = ref<string | null>(null);
 const isSidebarOpen = ref(true);
 const isMapMoving = ref(false);
@@ -36,7 +34,6 @@ const { calculateRoutes, tryRestoreRoute, switchMode, clearMapRoute } =
   useDirections();
 const routeStore = useRouteStore();
 
-// [FIX REACTIVITY] Computed property để luôn lấy dữ liệu mới nhất từ danh sách schools
 const selectedSchool = computed(
   () => schools.value?.find((s) => s.id === selectedSchoolId.value) || null,
 );
@@ -51,7 +48,6 @@ const focusLocation = (school: School) => {
   mapRef.value?.map?.setZoom(16);
   mapRef.value?.map?.panTo({ lat: school.lat, lng: school.lng });
 
-  // [FIX] Cập nhật ID thay vì Object
   selectedSchoolId.value = school.id;
   tempLocation.value = null;
 
@@ -153,21 +149,35 @@ const handleAddSubmit = async (formData: any, file: File | null) => {
     <transition name="slide">
       <div
         v-if="isSidebarOpen"
-        class="hidden md:flex w-87.5 border-r bg-white flex-col shrink-0 z-20"
+        class="hidden md:flex w-95 border-r bg-white flex-col shrink-0 z-20 shadow-xl"
       >
-        <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
-          <h1 class="font-bold text-lg text-slate-800">🗺️ Hokatsu Map</h1>
-          <Button variant="ghost" size="icon" @click="isSidebarOpen = false"
-            ><PanelLeftClose class="w-4 h-4"
-          /></Button>
+        <div
+          class="p-4 border-b bg-white flex justify-between items-center shrink-0 z-20"
+        >
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">🗺️</span>
+            <div>
+              <h1 class="font-bold text-lg text-slate-800 leading-none">
+                Hokatsu Map
+              </h1>
+              <span class="text-[10px] text-slate-400 font-medium"
+                >Bản đồ trường mầm non Toda</span
+              >
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" @click="isSidebarOpen = false">
+            <PanelLeftClose class="w-4 h-4 text-slate-500" />
+          </Button>
         </div>
-        <ScrollArea class="flex-1 p-4">
+
+        <div class="flex-1 min-h-0 relative bg-slate-50 overflow-hidden">
           <SchoolList
             :schools="schools"
             :pending="pending"
             @select="focusLocation"
+            class="h-full"
           />
-        </ScrollArea>
+        </div>
       </div>
     </transition>
 
@@ -216,16 +226,16 @@ const handleAddSubmit = async (formData: any, file: File | null) => {
               :class="{ '-translate-y-4': isMapMoving }"
             >
               <MapPinIcon
-                class="w-10 h-10 text-red-600 drop-shadow-md filter"
+                class="w-12 h-12 text-red-600 drop-shadow-lg filter"
                 fill="currentColor"
                 :stroke-width="1.5"
               />
               <div
-                class="absolute top-3 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-inner"
+                class="absolute top-4 left-1/2 -translate-x-1/2 w-4 h-4 bg-white rounded-full shadow-inner"
               ></div>
             </div>
             <div
-              class="z-0 -mt-1 w-4 h-1.5 bg-neutral-800 rounded-[100%] blur-[1px] transition-all duration-200 ease-out"
+              class="z-0 -mt-1 w-5 h-2 bg-neutral-800 rounded-[100%] blur-[2px] transition-all duration-200 ease-out"
               :class="
                 isMapMoving ? 'scale-50 opacity-30' : 'scale-100 opacity-60'
               "
@@ -243,9 +253,14 @@ const handleAddSubmit = async (formData: any, file: File | null) => {
           v-if="!isSidebarOpen"
           class="hidden md:block absolute top-4 left-4 z-20"
         >
-          <Button variant="secondary" size="icon" @click="isSidebarOpen = true"
-            ><PanelLeftOpen class="w-5 h-5"
-          /></Button>
+          <Button
+            variant="secondary"
+            size="icon"
+            @click="isSidebarOpen = true"
+            class="shadow-md bg-white hover:bg-slate-50 border border-slate-200"
+          >
+            <PanelLeftOpen class="w-5 h-5 text-slate-700" />
+          </Button>
         </div>
 
         <div
