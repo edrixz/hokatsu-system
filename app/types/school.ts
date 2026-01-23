@@ -98,7 +98,6 @@ export interface School {
   established_year?: number;
   established_date?: string; // Có thể dùng string cho ngày tháng năm đầy đủ
   director_name: string;
-  capacity_total?: number;
 
   // B. Vị trí & Giao thông
   address: string;

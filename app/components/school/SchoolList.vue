@@ -50,6 +50,7 @@ const schoolTypes = [
   { value: "all", label: "Tất cả loại hình" },
   { value: "Public", label: "Công lập (Ninka)" },
   { value: "Private", label: "Tư thục" },
+  { value: "Certified", label: "Đã cấp phép" },
   { value: "SmallScale", label: "Quy mô nhỏ" },
 ];
 

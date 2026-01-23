@@ -48,7 +48,11 @@ const focusLocation = (school: School) => {
   mapRef.value?.map?.setZoom(16);
   mapRef.value?.map?.panTo({ lat: school.lat, lng: school.lng });
 
-  selectedSchoolId.value = school.id;
+  if (school.category === "Home") {
+    selectedSchoolId.value = null;
+  } else {
+    selectedSchoolId.value = school.id;
+  }
   tempLocation.value = null;
 
   if (mapRef.value?.map && tryRestoreRoute(mapRef.value.map, school.id)) {

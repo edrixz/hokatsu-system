@@ -167,7 +167,9 @@ const handleFile = (e: Event) => {
               >Thành lập</span
             >
             <span v-if="!isEditing" class="font-medium text-slate-700">{{
-              school.established_date || "---"
+              school.established_date
+                ? school.established_date
+                : school.established_year || "---"
             }}</span>
             <Input
               v-else
