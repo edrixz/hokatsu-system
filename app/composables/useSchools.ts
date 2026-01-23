@@ -1,11 +1,9 @@
-import { ref } from "vue";
+// app/composables/useSchools.ts
 import type { School } from "~/types/school";
 
 const DEFAULT_IMAGE = "https://placehold.co/600x400?text=No+Image";
 
 export const useSchools = () => {
-  // [FIX] Dùng <any> thay vì <School> để tránh lỗi "parameter of type never"
-  // Nguyên nhân: useSupabaseClient cần Database Definition, không phải Row Interface.
   const supabase = useSupabaseClient<any>();
 
   // Fetch Data
@@ -22,12 +20,19 @@ export const useSchools = () => {
 
     if (error) throw error;
 
-    // Map dữ liệu để đảm bảo JSONB không bị null
+    // [FIX] Map dữ liệu chuẩn theo Schema mới
     return (data as any[]).map((item) => ({
       ...item,
-      capacity_info: item.capacity_info || { total: 0 },
-      vacancy_info: item.vacancy_info || { total: 0 },
+      // Đảm bảo các field JSONB không bị null để tránh lỗi UI
+      capacity_info: item.capacity_info || {},
+      staff_info: item.staff_info || {},
+      operating_hours: item.operating_hours || {},
+      special_services: item.special_services || {},
+      fee_info: item.fee_info || {},
+      medical_safety_info: item.medical_safety_info || {},
+      facility_info: item.facility_info || {},
       tags: item.tags || [],
+      // Loại bỏ vacancy_info cũ nếu database trả về rác
     })) as School[];
   });
 
@@ -55,7 +60,7 @@ export const useSchools = () => {
     }
   };
 
-  // 1. Thêm Mới (Chỉ thông tin cơ bản)
+  // 1. Thêm Mới (ADD)
   const addSchool = async (formData: any, file: File | null) => {
     let imageUrl = DEFAULT_IMAGE;
     if (file) {
@@ -63,17 +68,31 @@ export const useSchools = () => {
       if (uploadedUrl) imageUrl = uploadedUrl;
     }
 
+    // [FIX] Payload INSERT chuẩn Schema mới
+    const insertPayload = {
+      name: formData.name,
+      category: formData.category,
+      address: formData.address,
+      notes: formData.notes,
+      lat: formData.lat,
+      lng: formData.lng,
+      image_url: imageUrl,
+
+      // Khởi tạo các trường JSONB rỗng để tránh lỗi null khi Edit sau này
+      capacity_info: {},
+      staff_info: {},
+      operating_hours: {},
+      special_services: {},
+      fee_info: {},
+      medical_safety_info: {},
+      facility_info: {},
+      tags: [],
+      ranking: null,
+    };
+
     const { data, error } = await supabase
       .from("schools")
-      .insert({
-        ...formData,
-        image_url: imageUrl,
-        // Các trường khác để mặc định null/empty
-        ranking: null,
-        capacity_info: {},
-        vacancy_info: {},
-        tags: [],
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
@@ -82,7 +101,7 @@ export const useSchools = () => {
     return data;
   };
 
-  // 2. Cập Nhật (Full thông tin)
+  // 2. Cập Nhật (UPDATE)
   const updateSchool = async (
     id: string,
     formData: any,
@@ -96,13 +115,16 @@ export const useSchools = () => {
       if (uploadedUrl) imageUrl = uploadedUrl;
     }
 
-    // [FIX] Update đầy đủ các trường
+    // Lọc bỏ các trường không tồn tại trong DB nếu formData bị dính rác
+    // Tuy nhiên, Supabase thường tự bỏ qua nếu ta dùng spread ...formData cẩn thận.
+    // Ở đây ta spread formData đè lên, nhưng quan trọng là formData lấy từ School type mới
+    // nên sẽ không còn vacancy_info.
+
     const { data, error } = await supabase
       .from("schools")
       .update({
         ...formData,
         image_url: imageUrl,
-        // Chuyển null ranking nếu cần thiết
         ranking: formData.ranking === "" ? null : formData.ranking,
       })
       .eq("id", id)
@@ -114,7 +136,7 @@ export const useSchools = () => {
     return data;
   };
 
-  // 3. Xóa
+  // 3. Xóa (DELETE)
   const deleteSchool = async (id: string, imageUrl?: string) => {
     const { error } = await supabase.from("schools").delete().eq("id", id);
     if (error) throw error;
